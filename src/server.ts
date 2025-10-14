@@ -1,7 +1,5 @@
 import { routeAgentRequest, type Schedule } from "agents";
-
 import { getSchedulePrompt } from "agents/schedule";
-
 import { AIChatAgent } from "agents/ai-chat-agent";
 import {
   generateId,
@@ -16,15 +14,34 @@ import {
 import { openai } from "@ai-sdk/openai";
 import { processToolCalls, cleanupMessages } from "./utils";
 import { tools, executions } from "./tools";
-// import { env } from "cloudflare:workers";
 import { processWeeklySummaries } from "./weekly-summary";
 
 const model = openai("gpt-4o-2024-11-20");
-// Cloudflare AI Gateway
-// const openai = createOpenAI({
-//   apiKey: env.OPENAI_API_KEY,
-//   baseURL: env.GATEWAY_BASE_URL,
-// });
+
+/**
+ * Environment bindings interface
+ */
+interface Env {
+  OPENAI_API_KEY: string;
+  USER_CONFIG: KVNamespace;
+  Chat: DurableObjectNamespace;
+  MAILGUN_API_KEY: string;
+  MAILGUN_DOMAIN: string;
+  MAILGUN_FROM_EMAIL: string;
+  AI: any;
+}
+
+/**
+ * Message interface for SQL results
+ */
+interface StoredMessage {
+  id: string;
+  userId: string;
+  role: string;
+  content: string;
+  createdAt: string;
+  [key: string]: any;
+}
 
 /**
  * Chat Agent implementation that handles real-time AI chat interactions
@@ -37,10 +54,6 @@ export class Chat extends AIChatAgent<Env> {
     onFinish: StreamTextOnFinishCallback<ToolSet>,
     _options?: { abortSignal?: AbortSignal }
   ) {
-    // const mcpConnection = await this.mcp.connect(
-    //   "https://path-to-mcp-server/sse"
-    // );
-
     // Collect all tools, including MCP tools
     const allTools = {
       ...tools,
@@ -62,19 +75,25 @@ export class Chat extends AIChatAgent<Env> {
         });
 
         const result = streamText({
-          system: `You are a helpful assistant that can do various tasks... 
+          system: `You are a helpful AI assistant that can perform various tasks including:
+- Answering questions and providing information
+- Scheduling tasks for later execution
+- Configuring weekly conversation summaries
+- Checking weather information
+- Managing your calendar and tasks
 
 ${getSchedulePrompt({ date: new Date() })}
 
-If the user asks to schedule a task, use the schedule tool to schedule the task.
-`,
+When the user asks to schedule a task, use the scheduleTask tool.
+When the user wants to set up weekly summaries, use the configureWeeklySummary tool.
+Always be helpful, accurate, and proactive in suggesting relevant tools.`,
 
           messages: convertToModelMessages(processedMessages),
           model,
           tools: allTools,
           // Type boundary: streamText expects specific tool types, but base class uses ToolSet
           // This is safe because our tools satisfy ToolSet interface (verified by 'satisfies' in tools.ts)
-          onFinish: onFinish as unknown as StreamTextOnFinishCallback<
+          onFinish: onFinish as unknown as StreamTextOnFinishCallback
             typeof allTools
           >,
           stopWhen: stepCountIs(10)
@@ -86,6 +105,10 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
 
     return createUIMessageStreamResponse({ stream });
   }
+
+  /**
+   * Execute a scheduled task
+   */
   async executeTask(description: string, _task: Schedule<string>) {
     await this.saveMessages([
       ...this.messages,
@@ -104,30 +127,59 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
       }
     ]);
   }
-  // fetch CONVERSATION HISTORY
+
+  /**
+   * Fetch conversation history or handle other custom routes
+   */
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/get-messages") {
-      const userId = url.searchParams.get("userId");
-      const start = url.searchParams.get("start");
-      const end = url.searchParams.get("end");
+      try {
+        const userId = url.searchParams.get("userId");
+        const start = url.searchParams.get("start");
+        const end = url.searchParams.get("end");
 
-      if (!userId || !start || !end) {
-        return Response.json({ error: "Missing parameters" }, { status: 400 });
+        if (!userId || !start || !end) {
+          return Response.json(
+            { error: "Missing required parameters: userId, start, end" },
+            { status: 400 }
+          );
+        }
+
+        // Query messages from the database
+        // Note: Field names may need adjustment based on your actual schema
+        // Common patterns: user_id or userId, created_at or createdAt
+        const result = await this.sql.exec(
+          `SELECT * FROM messages 
+           WHERE userId = ? 
+           AND createdAt >= ? 
+           AND createdAt <= ?
+           ORDER BY createdAt ASC`,
+          [userId, start, end]
+        );
+
+        const messages = (result?.rows || []) as StoredMessage[];
+
+        return Response.json({
+          success: true,
+          count: messages.length,
+          messages
+        });
+
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        return Response.json(
+          {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error"
+          },
+          { status: 500 }
+        );
       }
-
-      const messages = await this.sql.exec(
-        `SELECT * FROM messages 
-         WHERE user_id = ? 
-         AND created_at >= ? 
-         AND created_at <= ?
-         ORDER BY created_at ASC`,
-        [userId, start, end]
-      );
-
-      return Response.json(messages?.rows || []);
     }
+
+    // Delegate to parent class for other routes
     return super.fetch(request);
   }
 }
@@ -139,32 +191,54 @@ export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext) {
     const url = new URL(request.url);
 
+    // Health check endpoint for OpenAI API key
     if (url.pathname === "/check-open-ai-key") {
       const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
       return Response.json({
-        success: hasOpenAIKey
+        success: hasOpenAIKey,
+        message: hasOpenAIKey 
+          ? "OpenAI API key is configured" 
+          : "OpenAI API key is missing"
       });
     }
+
+    // Warn if OpenAI API key is not set
     if (!process.env.OPENAI_API_KEY) {
       console.error(
-        "OPENAI_API_KEY is not set, don't forget to set it locally in .dev.vars, and use `wrangler secret bulk .dev.vars` to upload it to production"
+        "⚠️ OPENAI_API_KEY is not set. " +
+        "Set it locally in .dev.vars, and use 'wrangler secret bulk .dev.vars' to upload to production"
       );
     }
+
+    // Route the request to our agent or return 404 if not found
     return (
-      // Route the request to our agent or return 404 if not found
       (await routeAgentRequest(request, env)) ||
       new Response("Not found", { status: 404 })
     );
   },
-  // add trigger
+
+  /**
+   * Scheduled event handler for cron triggers
+   * Runs weekly summary generation
+   */
   async scheduled(
-    event: ScheduledEvent,
+    _event: ScheduledEvent,
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
     console.log("⏰ Cron trigger fired:", new Date().toISOString());
 
-    // execute weekly summary processing
-    ctx.waitUntil(processWeeklySummaries(env));
+    try {
+      // Execute weekly summary processing
+      ctx.waitUntil(
+        processWeeklySummaries(env).catch((error) => {
+          console.error("Error in weekly summary processing:", error);
+        })
+      );
+      
+      console.log("Weekly summary processing initiated");
+    } catch (error) {
+      console.error("Error scheduling weekly summary:", error);
+    }
   }
 } satisfies ExportedHandler<Env>;
