@@ -17,6 +17,7 @@ import { openai } from "@ai-sdk/openai";
 import { processToolCalls, cleanupMessages } from "./utils";
 import { tools, executions } from "./tools";
 // import { env } from "cloudflare:workers";
+import { processWeeklySummaries } from "./weekly-summary";
 
 const model = openai("gpt-4o-2024-11-20");
 // Cloudflare AI Gateway
@@ -103,6 +104,32 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
       }
     ]);
   }
+  // fetch CONVERSATION HISTORY
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/get-messages") {
+      const userId = url.searchParams.get("userId");
+      const start = url.searchParams.get("start");
+      const end = url.searchParams.get("end");
+
+      if (!userId || !start || !end) {
+        return Response.json({ error: "Missing parameters" }, { status: 400 });
+      }
+
+      const messages = await this.sql.exec(
+        `SELECT * FROM messages 
+         WHERE user_id = ? 
+         AND created_at >= ? 
+         AND created_at <= ?
+         ORDER BY created_at ASC`,
+        [userId, start, end]
+      );
+
+      return Response.json(messages?.rows || []);
+    }
+    return super.fetch(request);
+  }
 }
 
 /**
@@ -128,5 +155,16 @@ export default {
       (await routeAgentRequest(request, env)) ||
       new Response("Not found", { status: 404 })
     );
+  },
+  // add trigger
+  async scheduled(
+    event: ScheduledEvent,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    console.log("⏰ Cron trigger fired:", new Date().toISOString());
+
+    // execute weekly summary processing
+    ctx.waitUntil(processWeeklySummaries(env));
   }
 } satisfies ExportedHandler<Env>;

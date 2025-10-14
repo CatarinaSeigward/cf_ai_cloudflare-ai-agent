@@ -18,6 +18,18 @@ const getWeatherInformation = tool({
   inputSchema: z.object({ city: z.string() })
   // Omitting execute function makes this tool require human confirmation
 });
+//tool for exchange rate
+const getExchangeRate = tool( {
+  description: "get the exchange rate between two currencies",
+  parameters: z.object({
+    from : z.string().describe("Source currency code (USD, EUR, CNY)"),
+    to :z.string().describe("Target currency code (USD, EUR, CNY)"),
+    amount : z.number().describe("Amount to convert(optional, defaults to 1")
+    
+  })
+}
+)
+
 
 /**
  * Local time tool that executes automatically
