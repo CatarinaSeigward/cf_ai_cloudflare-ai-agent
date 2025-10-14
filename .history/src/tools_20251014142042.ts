@@ -19,6 +19,7 @@ const getWeatherInformation = tool({
   // Omitting execute function makes this tool require human confirmation
 });
 
+
 /**
  * Local time tool that executes automatically
  * Since it includes an execute function, it will run without user confirmation
@@ -33,9 +34,6 @@ const getLocalTime = tool({
   }
 });
 
-/**
- * Tool to schedule a task to be executed at a later time
- */
 const scheduleTask = tool({
   description: "A tool to schedule a task to be executed at a later time",
   inputSchema: scheduleSchema,
@@ -112,88 +110,6 @@ const cancelScheduledTask = tool({
 });
 
 /**
- * Tool to configure weekly AI conversation summary
- */
-const configureWeeklySummary = tool({
-  description: "Configure weekly AI conversation summary to be sent to user's email",
-  inputSchema: z.object({
-    email: z.string().email().describe("User's email address"),
-    enable: z.boolean().describe("Enable or disable weekly summaries")
-  }),
-  execute: async ({ email, enable }) => {
-    try {
-      const { agent, env } = getCurrentAgent<Chat>();
-      const userId = "current-user-id"; // TODO: Get actual user ID from context
-
-      // Save configuration to KV
-      await env.USER_CONFIG.put(
-        `user:${userId}`,
-        JSON.stringify({
-          userId,
-          email,
-          enableWeeklySummary: enable,
-          updatedAt: new Date().toISOString()
-        })
-      );
-
-      return {
-        success: true,
-        message: enable
-          ? `✅ Weekly summaries will be sent to ${email} every Sunday evening`
-          : `❌ Weekly summaries have been disabled`
-      };
-    } catch (error) {
-      console.error("Error configuring weekly summary:", error);
-      return {
-        success: false,
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-  }
-});
-
-/**
- * Tool to generate and preview a weekly summary immediately (for testing)
- */
-const generateSummaryNow = tool({
-  description: "Generate and preview a weekly summary immediately (for testing)",
-  inputSchema: z.object({
-    days: z.number().optional().describe("Number of days to include (default: 7)")
-  }),
-  execute: async ({ days = 7 }) => {
-    try {
-      const { agent, env } = getCurrentAgent<Chat>();
-      const { generateWeeklySummary, getUserConversations } = await import("./weekly-summary");
-      
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
-      const userId = "current-user-id"; // TODO: Get actual user ID from context
-      const chatId = env.Chat.idFromName(userId);
-      const chatStub = env.Chat.get(chatId);
-
-      const conversations = await getUserConversations(
-        chatStub,
-        userId,
-        startDate,
-        endDate
-      );
-
-      if (!conversations || conversations.length === 0) {
-        return "No conversations found in the specified period.";
-      }
-
-      const summary = await generateWeeklySummary(conversations, env);
-      return summary;
-    } catch (error) {
-      console.error("Error generating summary:", error);
-      return `Error generating summary: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    }
-  }
-});
-
-/**
  * Export all available tools
  * These will be provided to the AI model to describe available capabilities
  */
@@ -218,3 +134,66 @@ export const executions = {
     return `The weather in ${city} is sunny`;
   }
 };
+
+// tool for weekly summary
+export const configureWeeklySummary = tool({
+  description: "Configure weekly AI conversation summary to be sent to user's email",
+  parameters: z.object({
+    email: z.string().email().describe("User's email address"),
+    enable: z.boolean().describe("Enable or disable weekly summaries")
+  }),
+  execute: async ({ email, enable }, { env }) => {
+    const userId = "current-user-id"; 
+
+    // save to KV
+    await env.USER_CONFIG.put(
+      `user:${userId}`,
+      JSON.stringify({
+        userId,
+        email,
+        enableWeeklySummary: enable,
+        updatedAt: new Date().toISOString()
+      })
+    );
+
+    return {
+      success: true,
+      message: enable
+        ? `✅ Weekly summaries will be sent to ${email} every Sunday evening`
+        : `❌ Weekly summaries have been disabled`
+    };
+  }
+});
+
+// instant test
+export const generateSummaryNow = tool({
+  description: "Generate and preview a weekly summary immediately (for testing)",
+  parameters: z.object({
+    days: z.number().optional().describe("Number of days to include (default: 7)")
+  }),
+  execute: async ({ days = 7 }, { env }) => {
+    const { generateWeeklySummary, getUserConversations } = await import("./weekly-summary");
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const userId = "current-user-id";
+    const chatId = env.Chat.idFromName(userId);
+    const chatStub = env.Chat.get(chatId);
+
+    const conversations = await getUserConversations(
+      chatStub,
+      userId,
+      startDate,
+      endDate
+    );
+
+    if (!conversations || conversations.length === 0) {
+      return "No conversations found in the specified period.";
+    }
+
+    const summary = await generateWeeklySummary(conversations, env);
+    return summary;
+  }
+});
