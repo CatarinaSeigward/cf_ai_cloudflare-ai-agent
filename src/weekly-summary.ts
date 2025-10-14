@@ -207,7 +207,7 @@ export async function processWeeklySummaries(env: Env) {
       );
 
       if (!conversations || conversations.length === 0) {
-        console.log(`ℹ️ No conversations found for user ${userConfig.userId}`);
+        console.log(`ℹ No conversations found for user ${userConfig.userId}`);
         continue;
       }
 
@@ -217,13 +217,13 @@ export async function processWeeklySummaries(env: Env) {
   
       await sendWeeklySummaryEmail(userConfig.email, summary, env);
 
-      console.log(`✅ Summary sent to ${userConfig.email}`);
+      console.log(`Summary sent to ${userConfig.email}`);
     } catch (error) {
-      console.error(`❌ Error processing user ${userConfig.userId}:`, error);
+      console.error(`Error processing user ${userConfig.userId}:`, error);
     }
   }
 
-  console.log("✅ Weekly summary generation completed");
+  console.log(" Weekly summary generation completed");
 }
 
 /**

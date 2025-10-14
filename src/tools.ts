@@ -18,17 +18,6 @@ const getWeatherInformation = tool({
   inputSchema: z.object({ city: z.string() })
   // Omitting execute function makes this tool require human confirmation
 });
-//tool for exchange rate
-const getExchangeRate = tool( {
-  description: "get the exchange rate between two currencies",
-  parameters: z.object({
-    from : z.string().describe("Source currency code (USD, EUR, CNY)"),
-    to :z.string().describe("Target currency code (USD, EUR, CNY)"),
-    amount : z.number().describe("Amount to convert(optional, defaults to 1")
-    
-  })
-}
-)
 
 
 /**
@@ -143,3 +132,73 @@ export const executions = {
     return `The weather in ${city} is sunny`;
   }
 };
+
+// tool for weekly summary
+export const configureWeeklySummary = tool({
+  description: "Configure weekly AI conversation summary to be sent to user's email",
+  parameters: z.object({
+    email: z.string().email().describe("User's email address"),
+    enable: z.boolean().describe("Enable or disable weekly summaries")
+  }),
+  execute: async ({ email, enable }, { env }) => {
+    const userId = "current-user-id"; 
+
+    // save to KV
+    await env.USER_CONFIG.put(
+      `user:${userId}`,
+      JSON.stringify({
+        userId,
+        email,
+        enableWeeklySummary: enable,
+        updatedAt: new Date().toISOString()
+      })
+    );
+
+    return {
+      success: true,
+      message: enable
+        ? `✅ Weekly summaries will be sent to ${email} every Sunday evening`
+        : `❌ Weekly summaries have been disabled`
+    };
+  }
+});
+
+// instant test
+export const generateSummaryNow = tool({
+  description: "Generate and preview a weekly summary immediately (for testing)",
+  parameters: z.object({
+    days: z.number().optional().describe("Number of days to include (default: 7)")
+  }),
+  execute: async ({ days = 7 }, { env }) => {
+    const { generateWeeklySummary, getUserConversations } = await import("./weekly-summary");
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const userId = "current-user-id";
+    const chatId = env.Chat.idFromName(userId);
+    const chatStub = env.Chat.get(chatId);
+
+    const conversations = await getUserConversations(
+      chatStub,
+      userId,
+      startDate,
+      endDate
+    );
+
+    if (!conversations || conversations.length === 0) {
+      return "No conversations found in the specified period.";
+    }
+
+    const summary = await generateWeeklySummary(conversations, env);
+    return summary;
+  }
+});
+
+//update tool
+export const tools = {
+  configureWeeklySummary,
+  generateSummaryNow  
+} satisfies ToolSet;
+
