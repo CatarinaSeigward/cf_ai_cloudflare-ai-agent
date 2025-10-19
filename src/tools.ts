@@ -5,7 +5,7 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod/v3";
 
-import type { Chat } from "./server";
+import type { Chat, Env } from "./server";
 import { getCurrentAgent } from "agents";
 import { scheduleSchema } from "agents/schedule";
 
@@ -115,14 +115,17 @@ const cancelScheduledTask = tool({
  * Tool to configure weekly AI conversation summary
  */
 const configureWeeklySummary = tool({
-  description: "Configure weekly AI conversation summary to be sent to user's email",
+  description:
+    "Configure weekly AI conversation summary to be sent to user's email",
   inputSchema: z.object({
     email: z.string().email().describe("User's email address"),
     enable: z.boolean().describe("Enable or disable weekly summaries")
   }),
   execute: async ({ email, enable }) => {
     try {
-      const { agent, env } = getCurrentAgent<Chat>();
+      const { agent } = getCurrentAgent<Chat>();
+      // Access env through type assertion (env is protected but accessible at runtime)
+      const env = (agent as any).env as Env;
       const userId = "current-user-id"; // TODO: Get actual user ID from context
 
       // Save configuration to KV
@@ -146,7 +149,7 @@ const configureWeeklySummary = tool({
       console.error("Error configuring weekly summary:", error);
       return {
         success: false,
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Error: ${error instanceof Error ? error.message : "Unknown error"}`
       };
     }
   }
@@ -156,15 +159,23 @@ const configureWeeklySummary = tool({
  * Tool to generate and preview a weekly summary immediately (for testing)
  */
 const generateSummaryNow = tool({
-  description: "Generate and preview a weekly summary immediately (for testing)",
+  description:
+    "Generate and preview a weekly summary immediately (for testing)",
   inputSchema: z.object({
-    days: z.number().optional().describe("Number of days to include (default: 7)")
+    days: z
+      .number()
+      .optional()
+      .describe("Number of days to include (default: 7)")
   }),
   execute: async ({ days = 7 }) => {
     try {
-      const { agent, env } = getCurrentAgent<Chat>();
-      const { generateWeeklySummary, getUserConversations } = await import("./weekly-summary");
-      
+      const { agent } = getCurrentAgent<Chat>();
+      // Access env through type assertion (env is protected but accessible at runtime)
+      const env = (agent as any).env as Env;
+      const { generateWeeklySummary, getUserConversations } = await import(
+        "./weekly-summary"
+      );
+
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -188,7 +199,7 @@ const generateSummaryNow = tool({
       return summary;
     } catch (error) {
       console.error("Error generating summary:", error);
-      return `Error generating summary: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      return `Error generating summary: ${error instanceof Error ? error.message : "Unknown error"}`;
     }
   }
 });

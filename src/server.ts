@@ -16,7 +16,7 @@ import { processToolCalls, cleanupMessages } from "./utils";
 import { tools, executions } from "./tools";
 import { processWeeklySummaries } from "./weekly-summary";
 
-const model = openai("gpt-4o-2024-11-20");
+const model = openai("gpt-4o-2024-11-20");//
 
 /**
  * Environment bindings interface

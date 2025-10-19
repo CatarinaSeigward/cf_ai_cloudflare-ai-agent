@@ -1,3 +1,27 @@
+import type { Env } from "./server";
+
+interface UserConfig {
+  userId: string;
+  email: string;
+  enableWeeklySummary: boolean;
+  updatedAt?: string;
+}
+
+interface ConversationMessage {
+  id: string;
+  userId: string;
+  role: string;
+  content: string;
+  createdAt: string;
+  [key: string]: any;
+}
+
+interface GetMessagesResponse {
+  success: boolean;
+  count: number;
+  messages: ConversationMessage[];
+}
+
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 //base on your preference
@@ -11,19 +35,20 @@ export async function getUserConversations(
   userId: string,
   startDate: Date,
   endDate: Date
-) {
+): Promise<ConversationMessage[]> {
   const response = await chatDO.fetch(
     `https://internal/get-messages?userId=${userId}&start=${startDate.toISOString()}&end=${endDate.toISOString()}`
   );
-  
-  return await response.json();
+
+  const data = (await response.json()) as GetMessagesResponse;
+  return data.messages || [];
 }
 
 /**
  * analyze conversations and generate weekly summary
  */
 export async function generateWeeklySummary(
-  conversations: any[],
+  conversations: ConversationMessage[],
   env: Env
 ): Promise<string> {
   // extract and generate
@@ -72,7 +97,10 @@ export async function sendWeeklySummaryEmail(
   const formData = new FormData();
   formData.append("from", `AI Assistant <${env.MAILGUN_FROM_EMAIL}>`);
   formData.append("to", toEmail);
-  formData.append("subject", "🤖 Your Weekly AI Conversation Summary & Recommendations");
+  formData.append(
+    "subject",
+    "🤖 Your Weekly AI Conversation Summary & Recommendations"
+  );
   formData.append("html", formatEmailHTML(summaryContent));
   formData.append("text", summaryContent);
 
@@ -151,17 +179,17 @@ function formatEmailHTML(content: string): string {
     <div class="header">
       <h1>🤖 Your Weekly AI Summary</h1>
       <p style="color: #666; margin: 10px 0 0 0;">
-        Generated on ${new Date().toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
+        Generated on ${new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
         })}
       </p>
     </div>
     
     <div class="content">
-      ${content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
+      ${content.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>")}
     </div>
     
     <div class="footer">
@@ -211,10 +239,8 @@ export async function processWeeklySummaries(env: Env) {
         continue;
       }
 
-
       const summary = await generateWeeklySummary(conversations, env);
 
-  
       await sendWeeklySummaryEmail(userConfig.email, summary, env);
 
       console.log(`Summary sent to ${userConfig.email}`);
@@ -235,17 +261,17 @@ async function getAllUserConfigs(env: Env): Promise<UserConfig[]> {
   const configs: UserConfig[] = [];
 
   for (const key of list.keys) {
-    const config = await env.USER_CONFIG.get(key.name, "json");
-    if (config && config.email && config.enableWeeklySummary) {
-      configs.push(config as UserConfig);
+    const config = await env.USER_CONFIG.get<UserConfig>(key.name, "json");
+    if (
+      config &&
+      typeof config === "object" &&
+      "email" in config &&
+      "enableWeeklySummary" in config &&
+      config.enableWeeklySummary
+    ) {
+      configs.push(config);
     }
   }
 
   return configs;
-}
-
-interface UserConfig {
-  userId: string;
-  email: string;
-  enableWeeklySummary: boolean;
 }
