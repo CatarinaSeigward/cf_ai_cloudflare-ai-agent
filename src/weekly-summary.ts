@@ -13,7 +13,7 @@ interface ConversationMessage {
   role: string;
   content: string;
   createdAt: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface GetMessagesResponse {
@@ -49,7 +49,7 @@ export async function getUserConversations(
  */
 export async function generateWeeklySummary(
   conversations: ConversationMessage[],
-  env: Env
+  _env: Env
 ): Promise<string> {
   // extract and generate
   const conversationText = conversations

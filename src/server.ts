@@ -16,7 +16,7 @@ import { processToolCalls, cleanupMessages } from "./utils";
 import { tools, executions } from "./tools";
 import { processWeeklySummaries } from "./weekly-summary";
 
-const model = openai("gpt-4o-2024-11-20");//
+const model = openai("gpt-4o-2024-11-20"); //
 
 /**
  * Environment bindings interface
@@ -40,7 +40,7 @@ interface StoredMessage {
   role: string;
   content: string;
   createdAt: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -163,7 +163,6 @@ Always be helpful, accurate, and proactive in suggesting relevant tools.`,
           count: messages.length,
           messages
         });
-
       } catch (error) {
         console.error("Error fetching messages:", error);
         return Response.json(
@@ -193,8 +192,8 @@ export default {
       const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
       return Response.json({
         success: hasOpenAIKey,
-        message: hasOpenAIKey 
-          ? "OpenAI API key is configured" 
+        message: hasOpenAIKey
+          ? "OpenAI API key is configured"
           : "OpenAI API key is missing"
       });
     }
@@ -203,7 +202,7 @@ export default {
     if (!process.env.OPENAI_API_KEY) {
       console.error(
         "⚠️ OPENAI_API_KEY is not set. " +
-        "Set it locally in .dev.vars, and use 'wrangler secret bulk .dev.vars' to upload to production"
+          "Set it locally in .dev.vars, and use 'wrangler secret bulk .dev.vars' to upload to production"
       );
     }
 
@@ -219,7 +218,7 @@ export default {
    * Runs weekly summary generation
    */
   async scheduled(
-    controller: ScheduledController,
+    _controller: ScheduledController,
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
@@ -232,7 +231,7 @@ export default {
           console.error("Error in weekly summary processing:", error);
         })
       );
-      
+
       console.log("Weekly summary processing initiated");
     } catch (error) {
       console.error("Error scheduling weekly summary:", error);

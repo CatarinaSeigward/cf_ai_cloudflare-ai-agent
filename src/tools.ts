@@ -125,7 +125,7 @@ const configureWeeklySummary = tool({
     try {
       const { agent } = getCurrentAgent<Chat>();
       // Access env through type assertion (env is protected but accessible at runtime)
-      const env = (agent as any).env as Env;
+      const env = (agent as unknown as { env: Env }).env;
       const userId = "current-user-id"; // TODO: Get actual user ID from context
 
       // Save configuration to KV
@@ -171,7 +171,7 @@ const generateSummaryNow = tool({
     try {
       const { agent } = getCurrentAgent<Chat>();
       // Access env through type assertion (env is protected but accessible at runtime)
-      const env = (agent as any).env as Env;
+      const env = (agent as unknown as { env: Env }).env;
       const { generateWeeklySummary, getUserConversations } = await import(
         "./weekly-summary"
       );

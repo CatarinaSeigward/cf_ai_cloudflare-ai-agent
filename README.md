@@ -49,7 +49,7 @@ Update IDs in `wrangler.jsonc`
 
 1. **Deploy**
 
-~~~bash
+````bash
    wrangler secret bulk .dev.vars
    npm run deploy
 ```
@@ -71,7 +71,7 @@ Generate a summary of my last 7 days
 ### Disable
 ```
 Please disable my weekly summaries
-~~~
+````
 
 ## 📧 Email Content
 
@@ -86,7 +86,7 @@ Your weekly summary includes:
 
 **Change schedule** (in `wrangler.jsonc`):
 
-~~~jsonc
+````jsonc
 "triggers": {
   "crons": ["0 20 * * 0"]  // Sunday 8PM UTC
 }
@@ -107,12 +107,12 @@ src/
 ├── tools.ts            # AI tools (config summary)
 ├── weekly-summary.ts   # Summary generation logic
 └── app.tsx             # React UI
-~~~
+````
 
 ## 📄 License
 
 MIT
 
-------
+---
 
 Built on [Cloudflare agents-starter](https://github.com/cloudflare/agents-starter) | Powered by [Vercel AI SDK](https://sdk.vercel.ai/)
