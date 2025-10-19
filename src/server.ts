@@ -21,7 +21,7 @@ const model = openai("gpt-4o-2024-11-20");//
 /**
  * Environment bindings interface
  */
-interface Env {
+export interface Env {
   OPENAI_API_KEY: string;
   USER_CONFIG: KVNamespace;
   Chat: DurableObjectNamespace;
@@ -150,16 +150,13 @@ Always be helpful, accurate, and proactive in suggesting relevant tools.`,
         // Query messages from the database
         // Note: Field names may need adjustment based on your actual schema
         // Common patterns: user_id or userId, created_at or createdAt
-        const result = await this.sql.exec(
-          `SELECT * FROM messages 
-           WHERE userId = ? 
-           AND createdAt >= ? 
-           AND createdAt <= ?
-           ORDER BY createdAt ASC`,
-          [userId, start, end]
-        );
-
-        const messages = (result?.rows || []) as StoredMessage[];
+        const messages = (await this.sql`
+          SELECT * FROM messages
+          WHERE userId = ${userId}
+          AND createdAt >= ${start}
+          AND createdAt <= ${end}
+          ORDER BY createdAt ASC
+        `) as StoredMessage[];
 
         return Response.json({
           success: true,
@@ -222,7 +219,7 @@ export default {
    * Runs weekly summary generation
    */
   async scheduled(
-    _event: ScheduledEvent,
+    controller: ScheduledController,
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
