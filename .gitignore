@@ -146,3 +146,10 @@ dist
 .dev.vars*
 !.dev.vars.example
 !.env.example
+# VS Code local history
+.githistory/
+.history
+
+# Vite build cache
+.vite/
+.vscode/
