@@ -28,7 +28,7 @@ export interface Env {
   MAILGUN_API_KEY: string;
   MAILGUN_DOMAIN: string;
   MAILGUN_FROM_EMAIL: string;
-  AI: any;
+  AI: Ai;
 }
 
 /**
@@ -189,7 +189,7 @@ export default {
 
     // Health check endpoint for OpenAI API key
     if (url.pathname === "/check-open-ai-key") {
-      const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+      const hasOpenAIKey = !!env.OPENAI_API_KEY;
       return Response.json({
         success: hasOpenAIKey,
         message: hasOpenAIKey
@@ -199,7 +199,7 @@ export default {
     }
 
     // Warn if OpenAI API key is not set
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       console.error(
         "⚠️ OPENAI_API_KEY is not set. " +
           "Set it locally in .dev.vars, and use 'wrangler secret bulk .dev.vars' to upload to production"

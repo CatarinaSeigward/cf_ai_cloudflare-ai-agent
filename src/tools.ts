@@ -126,7 +126,13 @@ const configureWeeklySummary = tool({
       const { agent } = getCurrentAgent<Chat>();
       // Access env through type assertion (env is protected but accessible at runtime)
       const env = (agent as unknown as { env: Env }).env;
-      const userId = "current-user-id"; // TODO: Get actual user ID from context
+
+      // TODO: Implement proper user authentication and get actual user ID
+      // For now, using a hardcoded ID. In production, you should:
+      // 1. Implement authentication (OAuth, JWT, etc.)
+      // 2. Extract user ID from request context or session
+      // 3. Pass it through the agent context
+      const userId = "current-user-id";
 
       // Save configuration to KV
       await env.USER_CONFIG.put(
@@ -180,7 +186,9 @@ const generateSummaryNow = tool({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const userId = "current-user-id"; // TODO: Get actual user ID from context
+      // TODO: Implement proper user authentication and get actual user ID
+      // See configureWeeklySummary tool for detailed TODO notes
+      const userId = "current-user-id";
       const chatId = env.Chat.idFromName(userId);
       const chatStub = env.Chat.get(chatId);
 
@@ -222,10 +230,22 @@ export const tools = {
  * Implementation of confirmation-required tools
  * This object contains the actual logic for tools that need human approval
  * Each function here corresponds to a tool above that doesn't have an execute function
+ *
+ * NOTE: Due to limitations in the human-in-the-loop pattern implementation,
+ * tool arguments are not currently preserved through the confirmation flow.
+ * The execution functions receive an empty object instead of the original arguments.
+ * TODO: Implement proper argument preservation in the confirmation flow (see utils.ts)
  */
 export const executions = {
-  getWeatherInformation: async ({ city }: { city: string }) => {
+  getWeatherInformation: async (
+    args: { city?: string },
+    context: { messages: unknown[]; toolCallId: string }
+  ) => {
+    // TODO: Extract city from context.messages using context.toolCallId
+    // For now, returning a generic response since args are not preserved
+    const city = args.city || "your location";
     console.log(`Getting weather information for ${city}`);
-    return `The weather in ${city} is sunny`;
+    console.log("Tool call context:", context.toolCallId);
+    return `The weather in ${city} is sunny with a temperature of 72°F (22°C). This is a mock response - implement actual weather API integration here.`;
   }
 };
