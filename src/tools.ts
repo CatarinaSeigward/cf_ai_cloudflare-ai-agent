@@ -27,8 +27,7 @@ const getWeatherInformation = tool({
 const getLocalTime = tool({
   description: "get the local time for a specified location",
   inputSchema: z.object({ location: z.string() }),
-  execute: async ({ location }) => {
-    console.log(`Getting local time for ${location}`);
+  execute: async (_params) => {
     return "10am";
   }
 });
@@ -239,13 +238,11 @@ export const tools = {
 export const executions = {
   getWeatherInformation: async (
     args: { city?: string },
-    context: { messages: unknown[]; toolCallId: string }
+    _context: { messages: unknown[]; toolCallId: string }
   ) => {
-    // TODO: Extract city from context.messages using context.toolCallId
+    // TODO: Extract city from _context.messages using _context.toolCallId
     // For now, returning a generic response since args are not preserved
     const city = args.city || "your location";
-    console.log(`Getting weather information for ${city}`);
-    console.log("Tool call context:", context.toolCallId);
     return `The weather in ${city} is sunny with a temperature of 72°F (22°C). This is a mock response - implement actual weather API integration here.`;
   }
 };

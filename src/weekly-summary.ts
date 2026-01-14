@@ -117,7 +117,6 @@ export async function sendWeeklySummaryEmail(
     return false;
   }
 
-  console.log("✅ Weekly summary email sent to:", toEmail);
   return true;
 }
 
@@ -206,12 +205,9 @@ function formatEmailHTML(content: string): string {
  * main function
  */
 export async function processWeeklySummaries(env: Env) {
-  console.log("🔄 Starting weekly summary generation...");
-
   const userConfigs = await getAllUserConfigs(env);
 
   if (userConfigs.length === 0) {
-    console.log("i No users configured for weekly summaries");
     return;
   }
 
@@ -223,8 +219,6 @@ export async function processWeeklySummaries(env: Env) {
   // send summary for all user
   for (const userConfig of userConfigs) {
     try {
-      console.log(`📧 Processing summary for user: ${userConfig.userId}`);
-
       const chatId = env.Chat.idFromName(userConfig.userId);
       const chatStub = env.Chat.get(chatId);
       const conversations = await getUserConversations(
@@ -235,21 +229,16 @@ export async function processWeeklySummaries(env: Env) {
       );
 
       if (!conversations || conversations.length === 0) {
-        console.log(`ℹ No conversations found for user ${userConfig.userId}`);
         continue;
       }
 
       const summary = await generateWeeklySummary(conversations, env);
 
       await sendWeeklySummaryEmail(userConfig.email, summary, env);
-
-      console.log(`Summary sent to ${userConfig.email}`);
     } catch (error) {
       console.error(`Error processing user ${userConfig.userId}:`, error);
     }
   }
-
-  console.log(" Weekly summary generation completed");
 }
 
 /**
